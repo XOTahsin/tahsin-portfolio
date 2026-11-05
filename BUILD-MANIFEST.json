@@ -1,0 +1,30 @@
+{
+  "project": "XOTahsin Portfolio V2",
+  "type": "static-site",
+  "file_count": 18,
+  "files": [
+    ".nojekyll",
+    "404.html",
+    "README.md",
+    "assets/css/overrides.css",
+    "assets/css/styles.css",
+    "assets/img/favicon.svg",
+    "assets/img/og-cover.svg",
+    "assets/img/project-habitron.svg",
+    "assets/img/project-regnar.svg",
+    "assets/img/project-studypro.svg",
+    "assets/js/app.js",
+    "assets/js/case.js",
+    "index.html",
+    "robots.txt",
+    "site.webmanifest",
+    "work/habitron/index.html",
+    "work/regnar/index.html",
+    "work/studypro/index.html"
+  ],
+  "notes": [
+    "No build command required",
+    "Case-study artwork is illustrative",
+    "GitHub API data is optional client-side enhancement"
+  ]
+}

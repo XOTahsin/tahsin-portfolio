@@ -1,199 +1,159 @@
-const root = document.documentElement;
-const $ = (selector, scope = document) => scope.querySelector(selector);
-const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
+(() => {
+  const root = document.documentElement;
+  const themeToggle = document.querySelector('.theme-toggle');
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
 
-// Theme preference: saved locally, with dark mode as the default.
-const themeButton = $('#theme-toggle');
-const storedTheme = (() => { try { return localStorage.getItem('tahsin-theme'); } catch { return null; } })();
-if (storedTheme === 'light' || storedTheme === 'dark') root.dataset.theme = storedTheme;
-function updateThemeButton() {
-  const light = root.dataset.theme === 'light';
-  themeButton?.setAttribute('aria-pressed', String(light));
-  themeButton?.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
-}
-updateThemeButton();
-themeButton?.addEventListener('click', () => {
-  root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
-  try { localStorage.setItem('tahsin-theme', root.dataset.theme); } catch { /* Storage may be unavailable. */ }
-  updateThemeButton();
-});
+  const setTheme = (theme) => {
+    root.dataset.theme = theme;
+    const night = theme === 'night';
+    themeToggle?.setAttribute('aria-label', night ? 'Switch to paper theme' : 'Switch to night theme');
+    themeMeta?.setAttribute('content', night ? '#191a16' : '#f1eee4');
+    try { localStorage.setItem('xotahsin-theme', theme); } catch (_) { /* Storage can be disabled. */ }
+  };
 
-// Mobile navigation.
-const mobileToggle = $('#mobile-menu-toggle');
-const mobileMenu = $('#mobile-menu');
-function closeMobileMenu() {
-  if (!mobileMenu || !mobileToggle) return;
-  mobileMenu.hidden = true;
-  mobileToggle.setAttribute('aria-expanded', 'false');
-  mobileToggle.setAttribute('aria-label', 'Open navigation');
-}
-mobileToggle?.addEventListener('click', () => {
-  const opening = mobileMenu.hidden;
-  mobileMenu.hidden = !opening;
-  mobileToggle.setAttribute('aria-expanded', String(opening));
-  mobileToggle.setAttribute('aria-label', opening ? 'Close navigation' : 'Open navigation');
-});
-$$('#mobile-menu a').forEach(link => link.addEventListener('click', closeMobileMenu));
-
-// Scroll position and active section state.
-const progressBar = $('#scroll-progress-bar');
-const backToTop = $('#back-to-top');
-const desktopLinks = $$('.desktop-nav a');
-let scrollQueued = false;
-function updateScrollUI() {
-  const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-  const progress = scrollable > 0 ? window.scrollY / scrollable : 0;
-  if (progressBar) progressBar.style.transform = `scaleX(${Math.min(1, Math.max(0, progress))})`;
-  backToTop?.classList.toggle('is-visible', window.scrollY > 620);
-  scrollQueued = false;
-}
-window.addEventListener('scroll', () => {
-  if (!scrollQueued) { requestAnimationFrame(updateScrollUI); scrollQueued = true; }
-}, { passive: true });
-updateScrollUI();
-backToTop?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-
-const sectionObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
-  entries.forEach(entry => {
-    if (!entry.isIntersecting) return;
-    const id = entry.target.id;
-    desktopLinks.forEach(link => link.classList.toggle('is-active', link.getAttribute('href') === `#${id}`));
-  });
-}, { rootMargin: '-35% 0px -55% 0px', threshold: 0 }) : null;
-$$('main section[id]').forEach(section => sectionObserver?.observe(section));
-
-// Reveal only when motion is allowed; content remains visible without JS.
-const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-if (!reduceMotion && 'IntersectionObserver' in window) {
-  const revealObserver = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) { entry.target.classList.add('is-visible'); revealObserver.unobserve(entry.target); }
-    });
-  }, { threshold: 0.12 });
-  $$('.section-heading, .project-card, .about-visual, .about-copy, .capability-card, .focus-item, .github-panel, .process-step').forEach(el => {
-    el.classList.add('reveal'); revealObserver.observe(el);
-  });
-} else {
-  $$('.reveal').forEach(el => el.classList.add('is-visible'));
-}
-
-// Subtle cursor-following ambient light. Does not replace the system cursor.
-let pointerFrame = 0;
-window.addEventListener('pointermove', event => {
-  if (event.pointerType !== 'mouse' || pointerFrame) return;
-  pointerFrame = requestAnimationFrame(() => {
-    root.style.setProperty('--pointer-x', `${event.clientX}px`);
-    root.style.setProperty('--pointer-y', `${event.clientY}px`);
-    pointerFrame = 0;
-  });
-}, { passive: true });
-
-// Filter the featured work cards.
-const filterButtons = $$('.filter-chip');
-const projectCards = $$('.project-card[data-category]');
-filterButtons.forEach(button => button.addEventListener('click', () => {
-  const filter = button.dataset.filter;
-  filterButtons.forEach(item => {
-    const active = item === button;
-    item.classList.toggle('is-active', active);
-    item.setAttribute('aria-pressed', String(active));
-  });
-  projectCards.forEach(card => card.classList.toggle('is-hidden', filter !== 'all' && card.dataset.category !== filter));
-}));
-
-// Command palette: Ctrl/Cmd + K, Escape to close, and inline search.
-const commandDialog = $('#command-dialog');
-const commandTrigger = $('#command-trigger');
-const commandSearch = $('#command-search');
-const commandOptions = $('#command-options');
-function openCommandPalette() {
-  if (!commandDialog || typeof commandDialog.showModal !== 'function') return;
-  if (!commandDialog.open) commandDialog.showModal();
-  commandSearch.value = '';
-  filterCommandOptions('');
-  requestAnimationFrame(() => commandSearch.focus());
-}
-function filterCommandOptions(query) {
-  const term = query.trim().toLowerCase();
-  $$('[data-command]', commandOptions).forEach(option => {
-    option.hidden = term && !option.textContent.toLowerCase().includes(term);
-  });
-}
-commandTrigger?.addEventListener('click', openCommandPalette);
-commandSearch?.addEventListener('input', event => filterCommandOptions(event.target.value));
-commandOptions?.addEventListener('click', event => {
-  const action = event.target.closest('[data-command]');
-  if (!action) return;
-  const target = action.dataset.command;
-  if (target === 'github') return;
-  commandDialog.close();
-  document.getElementById(target)?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
-});
-document.addEventListener('keydown', event => {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openCommandPalette(); }
-  if (event.key === 'Escape') closeMobileMenu();
-});
-
-// Copy email with a graceful fallback.
-const toast = $('#toast');
-let toastTimeout;
-function showToast(message) {
-  if (!toast) return;
-  toast.textContent = message;
-  toast.classList.add('is-visible');
-  clearTimeout(toastTimeout);
-  toastTimeout = setTimeout(() => toast.classList.remove('is-visible'), 2200);
-}
-$('#copy-email')?.addEventListener('click', async event => {
-  const email = event.currentTarget.dataset.email;
   try {
-    await navigator.clipboard.writeText(email);
-    showToast('Email address copied.');
-  } catch {
-    showToast(email);
-  }
-});
+    const stored = localStorage.getItem('xotahsin-theme');
+    if (stored === 'paper' || stored === 'night') setTheme(stored);
+  } catch (_) { /* Keep the paper theme when storage is unavailable. */ }
 
-const year = $('#current-year');
-if (year) year.textContent = String(new Date().getFullYear());
+  themeToggle?.addEventListener('click', () => setTheme(root.dataset.theme === 'night' ? 'paper' : 'night'));
 
-// This feature is non-essential: the site remains complete if GitHub is rate-limited or offline.
-async function loadGitHubSnapshot() {
-  const note = $('#github-note');
-  const repoList = $('#repo-list');
-  try {
-    const headers = { Accept: 'application/vnd.github+json' };
-    const [profileResponse, reposResponse] = await Promise.all([
-      fetch('https://api.github.com/users/XOTahsin', { headers, cache: 'no-store' }),
-      fetch('https://api.github.com/users/XOTahsin/repos?sort=updated&per_page=4&type=owner', { headers, cache: 'no-store' })
-    ]);
-    if (!profileResponse.ok || !reposResponse.ok) throw new Error('GitHub returned a non-success response.');
-    const [profile, repos] = await Promise.all([profileResponse.json(), reposResponse.json()]);
-    $('#github-name').textContent = profile.name || profile.login || 'XOTahsin';
-    $('#github-bio').textContent = profile.bio || 'Public developer profile';
-    const avatarImage = document.createElement('img');
-    avatarImage.src = profile.avatar_url; avatarImage.alt = ''; avatarImage.referrerPolicy = 'no-referrer';
-    $('#github-avatar').replaceChildren(avatarImage);
-    $('#github-avatar').classList.add('has-avatar');
-    $('#github-repos').textContent = Number(profile.public_repos || 0).toLocaleString();
-    $('#github-followers').textContent = Number(profile.followers || 0).toLocaleString();
-    $('#github-following').textContent = Number(profile.following || 0).toLocaleString();
-    repoList.replaceChildren();
-    repos.filter(repo => !repo.fork).slice(0, 4).forEach(repo => {
-      const link = document.createElement('a');
-      link.className = 'repo-item'; link.href = repo.html_url; link.target = '_blank'; link.rel = 'noopener noreferrer';
-      const name = document.createElement('strong'); name.textContent = repo.name;
-      const description = document.createElement('p'); description.textContent = repo.description || 'Public repository';
-      const meta = document.createElement('div'); meta.className = 'repo-item-meta';
-      const language = document.createElement('span'); language.textContent = repo.language || 'Project';
-      const stars = document.createElement('span'); stars.textContent = `☆ ${repo.stargazers_count || 0}`;
-      meta.append(language, stars); link.append(name, description, meta); repoList.append(link);
+  const menuToggle = document.querySelector('.menu-toggle');
+  const nav = document.querySelector('.primary-nav');
+  const closeMenu = () => {
+    nav?.classList.remove('is-open');
+    menuToggle?.setAttribute('aria-expanded', 'false');
+    menuToggle?.setAttribute('aria-label', 'Open navigation');
+  };
+  menuToggle?.addEventListener('click', () => {
+    const open = menuToggle.getAttribute('aria-expanded') !== 'true';
+    menuToggle.setAttribute('aria-expanded', String(open));
+    menuToggle.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+    nav?.classList.toggle('is-open', open);
+  });
+  nav?.querySelectorAll('a').forEach((link) => link.addEventListener('click', closeMenu));
+  window.addEventListener('resize', () => { if (window.innerWidth > 700) closeMenu(); }, { passive: true });
+
+  const filters = [...document.querySelectorAll('[data-filter]')];
+  const projects = [...document.querySelectorAll('.project[data-category]')];
+  filters.forEach((button) => {
+    button.addEventListener('click', () => {
+      const filter = button.dataset.filter;
+      filters.forEach((item) => {
+        const active = item === button;
+        item.classList.toggle('is-active', active);
+        item.setAttribute('aria-pressed', String(active));
+      });
+      projects.forEach((project) => {
+        project.classList.toggle('is-hidden', filter !== 'all' && project.dataset.category !== filter);
+      });
     });
-    if (!repoList.children.length) repoList.textContent = 'No public repositories were returned.';
-    if (note) note.textContent = 'Snapshot loaded from the public GitHub API. Counts reflect the profile response at the time of this visit.';
-  } catch (error) {
-    if (repoList) repoList.innerHTML = '<div class="repo-loading">GitHub data is temporarily unavailable. The profile link above is always available.</div>';
-    if (note) note.textContent = 'Live data could not be loaded. This does not affect the rest of the portfolio.';
+  });
+
+  const dialog = document.querySelector('.command-dialog');
+  const search = dialog?.querySelector('.command-search input');
+  const resultLinks = [...(dialog?.querySelectorAll('.command-results a') || [])];
+  const closeButton = dialog?.querySelector('.command-close');
+  let visibleResults = resultLinks;
+  let activeResult = 0;
+
+  const setActiveResult = (index) => {
+    if (!visibleResults.length) return;
+    activeResult = (index + visibleResults.length) % visibleResults.length;
+    visibleResults.forEach((link, i) => {
+      link.classList.toggle('is-selected', i === activeResult);
+      if (i === activeResult) link.setAttribute('aria-current', 'true');
+      else link.removeAttribute('aria-current');
+    });
+    visibleResults[activeResult]?.scrollIntoView({ block: 'nearest' });
+  };
+  const openPalette = () => {
+    if (!dialog || dialog.open) return;
+    dialog.showModal();
+    if (search) { search.value = ''; search.dispatchEvent(new Event('input')); search.focus(); }
+  };
+  const closePalette = () => { if (dialog?.open) dialog.close(); };
+
+  closeButton?.addEventListener('click', closePalette);
+  search?.addEventListener('input', () => {
+    const query = search.value.trim().toLowerCase();
+    visibleResults = resultLinks.filter((link) => link.textContent.toLowerCase().includes(query));
+    resultLinks.forEach((link) => { link.hidden = !visibleResults.includes(link); });
+    setActiveResult(0);
+  });
+  search?.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown') { event.preventDefault(); setActiveResult(activeResult + 1); }
+    if (event.key === 'ArrowUp') { event.preventDefault(); setActiveResult(activeResult - 1); }
+    if (event.key === 'Enter' && visibleResults[activeResult]) { event.preventDefault(); visibleResults[activeResult].click(); closePalette(); }
+  });
+  dialog?.querySelectorAll('.command-results a').forEach((link) => {
+    link.addEventListener('click', () => closePalette());
+    link.addEventListener('mouseenter', () => setActiveResult(visibleResults.indexOf(link)));
+  });
+  dialog?.addEventListener('click', (event) => { if (event.target === dialog) closePalette(); });
+  document.addEventListener('keydown', (event) => {
+    const target = event.target;
+    const typing = target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openPalette(); }
+    if (event.key === '/' && !typing && !dialog?.open) { event.preventDefault(); openPalette(); }
+  });
+
+  const year = document.querySelector('#year');
+  if (year) year.textContent = String(new Date().getFullYear());
+
+  // A tiny live window into public repositories, with a static fallback already in the HTML.
+  const repoList = document.querySelector('#github-repos');
+  const repoStatus = document.querySelector('#github-status');
+  if (repoList && window.fetch) {
+    fetch('https://api.github.com/users/XOTahsin/repos?per_page=100&sort=updated', {
+      headers: { Accept: 'application/vnd.github+json' },
+      cache: 'no-store'
+    }).then((response) => {
+      if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
+      return response.json();
+    }).then((repos) => {
+      const latest = repos
+        .filter((repo) => !repo.fork && !repo.archived && repo.html_url)
+        .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+        .slice(0, 3);
+      if (!latest.length) return;
+      const fragment = document.createDocumentFragment();
+      latest.forEach((repo, index) => {
+        const link = document.createElement('a');
+        link.href = repo.html_url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        const label = document.createElement('span');
+        label.className = 'mono';
+        label.textContent = `PUBLIC / ${String(index + 1).padStart(2, '0')}`;
+        const name = document.createElement('strong');
+        name.textContent = repo.name.replace(/[-_]/g, ' ');
+        const note = document.createElement('small');
+        const date = repo.updated_at ? new Date(repo.updated_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : 'Updated recently';
+        note.textContent = [repo.language, date].filter(Boolean).join(' · ');
+        const arrow = document.createElement('b');
+        arrow.textContent = '↗';
+        link.append(label, name, note, arrow);
+        fragment.append(link);
+      });
+      repoList.replaceChildren(fragment);
+      if (repoStatus) repoStatus.textContent = 'LIVE FROM GITHUB / PUBLIC REPOSITORIES';
+    }).catch(() => {
+      if (repoStatus) repoStatus.textContent = 'PUBLIC REPOSITORIES / STATIC FALLBACK';
+    });
   }
-}
-loadGitHubSnapshot();
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if ('IntersectionObserver' in window && !reduceMotion) {
+    const revealTargets = document.querySelectorAll('.section-heading, .project, .workshop, .about__grid, .principle, .toolbox, .contact__body');
+    const observer = new IntersectionObserver((entries, obs) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          obs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -35px 0px' });
+    revealTargets.forEach((element) => { element.classList.add('reveal'); observer.observe(element); });
+  }
+})();

@@ -1,15 +1,13 @@
 {
-  "name": "MD Tahsin Islam \u2014 Portfolio",
-  "short_name": "Tahsin",
-  "start_url": "/",
+  "name": "XOTahsin — Digital Fieldnotes",
+  "short_name": "XOTahsin",
+  "description": "A working archive of digital products, experiments and useful things made by Tahsin.",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#080b12",
-  "theme_color": "#080b12",
+  "background_color": "#f1eee4",
+  "theme_color": "#f1eee4",
   "icons": [
-    {
-      "src": "/assets/img/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
-    }
+    { "src": "assets/img/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]
 }

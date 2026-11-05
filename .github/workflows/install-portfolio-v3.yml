@@ -1,0 +1,36 @@
+name: Install XOTahsin Portfolio V3
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".portfolio-v3-part-*"
+      - ".github/workflows/install-portfolio-v3.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Verify and install editorial portfolio
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .portfolio-v3-part-* > .portfolio-v3.bundle.b64
+          test "$(wc -c < .portfolio-v3.bundle.b64)" -eq 108620
+          base64 -d .portfolio-v3.bundle.b64 > .portfolio-v3.tar.xz
+          echo "2b7f3117b7baf3506a91c085166e041b53540119767c7b720411df34fd57ce75  .portfolio-v3.tar.xz" | sha256sum -c -
+          tar -tJf .portfolio-v3.tar.xz
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '.portfolio-v3-part-*' -exec rm -rf {} +
+          tar -xJf .portfolio-v3.tar.xz -C .
+          rm -f .portfolio-v3-part-* .portfolio-v3.bundle.b64 .portfolio-v3.tar.xz
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild portfolio as editorial digital fieldnotes"
+            git push origin HEAD:main
+          fi
